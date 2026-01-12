@@ -22,10 +22,8 @@ jobs:
 
       - name: Install Gradle
         run: |
-          GRADLE_VERSION=8.4.1
-          wget https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-bin.zip -O gradle.zip
-          sudo unzip -q gradle.zip -d /opt/gradle
-          echo "/opt/gradle/gradle-${GRADLE_VERSION}/bin" >> $GITHUB_PATH
+          sudo apt-get update
+          sudo apt-get install -y gradle
 
       - name: Prepare Android SDK
         env:
