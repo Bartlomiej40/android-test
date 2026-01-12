@@ -14,22 +14,37 @@ import androidx.appcompat.app.AppCompatActivity
 
 class MainActivity : AppCompatActivity() {
     private lateinit var webView: WebView
-    private var homeUrl: String = ""
+    private lateinit var swipeRefresh: androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+    private var homeUrl: String = "http://192.168.100.250:51500"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
         webView = findViewById(R.id.webview)
+        swipeRefresh = findViewById(R.id.swipe_refresh)
+
+        // Default to the provided IP if no saved URL
         val prefs = getSharedPreferences("app_prefs", MODE_PRIVATE)
-        homeUrl = prefs.getString("home_url", "") ?: ""
+        homeUrl = prefs.getString("home_url", homeUrl) ?: homeUrl
 
         setupWebView()
+        setupSwipeRefresh()
+        enableFullScreenMode()
 
-        if (homeUrl.isBlank()) {
-            promptForUrl()
-        } else {
-            loadUrl(homeUrl)
+        loadUrl(homeUrl)
+
+        // Hidden access to settings: long-press anywhere on the WebView
+        webView.setOnLongClickListener {
+            startActivity(Intent(this, SettingsActivity::class.java))
+            true
+        }
+        webView.isLongClickable = true
+    }
+
+    private fun setupSwipeRefresh() {
+        swipeRefresh.setOnRefreshListener {
+            webView.reload()
         }
     }
 
@@ -53,7 +68,19 @@ class MainActivity : AppCompatActivity() {
                 }
                 return false
             }
+
+            override fun onPageFinished(view: WebView?, url: String?) {
+                swipeRefresh.isRefreshing = false
+            }
         }
+    }
+
+    private fun enableFullScreenMode() {
+        // Hide status and navigation for an immersive experience
+        window.decorView.systemUiVisibility = (
+            android.view.View.SYSTEM_UI_FLAG_FULLSCREEN
+                or android.view.View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                or android.view.View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY)
     }
 
     private fun loadUrl(url: String) {
