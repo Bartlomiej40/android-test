@@ -29,6 +29,12 @@ class MainActivity : AppCompatActivity() {
         setupSwipeRefresh()
         enableFullScreenMode()
 
+        // Enable WebView remote debugging only in debug builds
+        if (BuildConfig.DEBUG) WebView.setWebContentsDebuggingEnabled(true)
+
+        // Use a Chrome-like user agent to reduce site UA-sniffing inconsistencies
+        webView.settings.userAgentString = android.webkit.WebSettings.getDefaultUserAgent(this)
+
         loadUrl(homeUrl)
 
         // Hidden access to settings: detect swipe from left edge to open Settings
@@ -80,9 +86,11 @@ class MainActivity : AppCompatActivity() {
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                 val uri = request.url
-                val homeHost = if (homeUrl.isBlank()) null else Uri.parse(homeUrl).host
-                if (uri.scheme == "http" || uri.scheme == "https") {
-                    // If link is same host as home page, load in-app; otherwise open external
+                val scheme = uri.scheme ?: return false
+
+                // Handle http/https: keep same-host in-webview, external for others
+                if (scheme == "http" || scheme == "https") {
+                    val homeHost = if (homeUrl.isBlank()) null else Uri.parse(homeUrl).host
                     return if (homeHost != null && uri.host == homeHost) {
                         false
                     } else {
@@ -90,7 +98,42 @@ class MainActivity : AppCompatActivity() {
                         true
                     }
                 }
-                return false
+
+                // Handle Chrome-style intent:// links
+                if (scheme == "intent") {
+                    try {
+                        val intent = Intent.parseUri(uri.toString(), Intent.URI_INTENT_SCHEME)
+                        val pm = packageManager
+                        if (intent.resolveActivity(pm) != null) {
+                            startActivity(intent)
+                        } else {
+                            // Try browser_fallback_url
+                            val fallback = intent.getStringExtra("browser_fallback_url")
+                            if (!fallback.isNullOrEmpty()) webView.loadUrl(fallback)
+                        }
+                    } catch (e: Exception) {
+                        // ignore
+                    }
+                    return true
+                }
+
+                // Common schemes: mailto, tel, sms
+                if (scheme == "mailto" || scheme == "tel" || scheme == "sms") {
+                    try {
+                        startActivity(Intent(Intent.ACTION_VIEW, uri))
+                    } catch (e: Exception) {
+                        // no handler
+                    }
+                    return true
+                }
+
+                // Try to launch other schemes as intents
+                try {
+                    startActivity(Intent(Intent.ACTION_VIEW, uri))
+                    return true
+                } catch (e: Exception) {
+                    return false
+                }
             }
 
             override fun onPageFinished(view: WebView?, url: String?) {
