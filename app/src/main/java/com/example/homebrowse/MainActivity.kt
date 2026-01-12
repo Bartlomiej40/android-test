@@ -29,7 +29,6 @@ class MainActivity : AppCompatActivity() {
 
         setupWebView()
         setupSwipeRefresh()
-        enableFullScreenMode()
 
         // Enable WebView remote debugging only in debug builds
         if (BuildConfig.DEBUG) WebView.setWebContentsDebuggingEnabled(true)
@@ -156,11 +155,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun enableFullScreenMode() {
-        // Hide status and navigation for an immersive experience
-        window.decorView.systemUiVisibility = (
-            android.view.View.SYSTEM_UI_FLAG_FULLSCREEN
-                or android.view.View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                or android.view.View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY)
+        // Intentionally left blank so the device status and navigation bars remain visible.
+        // Previously this enabled immersive mode; keeping it visible avoids hiding phone UI.
     }
 
     private fun loadUrl(url: String) {
