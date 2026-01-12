@@ -20,10 +20,13 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Install Gradle
+      - name: Install Gradle 7.5
         run: |
-          sudo apt-get update
-          sudo apt-get install -y gradle
+          GRADLE_VERSION=7.5
+          wget https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-bin.zip -O gradle.zip
+          sudo unzip -q gradle.zip -d /opt/gradle
+          echo "/opt/gradle/gradle-${GRADLE_VERSION}/bin" >> $GITHUB_PATH
+          rm gradle.zip
 
       - name: Prepare Android SDK
         env:
