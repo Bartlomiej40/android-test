@@ -3,13 +3,10 @@ package com.example.homebrowse
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
-import android.view.Menu
-import android.view.MenuItem
+import android.view.MotionEvent
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import android.widget.EditText
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 
 class MainActivity : AppCompatActivity() {
@@ -34,17 +31,44 @@ class MainActivity : AppCompatActivity() {
 
         loadUrl(homeUrl)
 
-        // Hidden access to settings: long-press anywhere on the WebView
-        webView.setOnLongClickListener {
-            startActivity(Intent(this, SettingsActivity::class.java))
-            true
-        }
-        webView.isLongClickable = true
+        // Hidden access to settings: detect swipe from left edge to open Settings
+        setupEdgeSwipeForSettings()
     }
 
     private fun setupSwipeRefresh() {
         swipeRefresh.setOnRefreshListener {
             webView.reload()
+        }
+    }
+
+    private fun setupEdgeSwipeForSettings() {
+        val density = resources.displayMetrics.density
+        val leftEdgeThreshold = (24 * density) // dp from left edge
+        val swipeThreshold = (120 * density) // dp movement to trigger
+        var startX = 0f
+        var tracking = false
+
+        webView.setOnTouchListener { _, ev ->
+            when (ev.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    startX = ev.x
+                    tracking = startX <= leftEdgeThreshold
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    if (tracking) {
+                        val dx = ev.x - startX
+                        if (dx > swipeThreshold) {
+                            // Open settings and stop tracking
+                            startActivity(Intent(this, SettingsActivity::class.java))
+                            tracking = false
+                            return@setOnTouchListener true
+                        }
+                    }
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> tracking = false
+            }
+            // Let WebView handle the touch as usual
+            false
         }
     }
 
@@ -91,50 +115,33 @@ class MainActivity : AppCompatActivity() {
         if (webView.canGoBack()) webView.goBack() else super.onBackPressed()
     }
 
-    override fun onCreateOptionsMenu(menu: Menu): Boolean {
-        menuInflater.inflate(R.menu.main_menu, menu)
-        return true
-    }
+    // No options menu — UI is full-screen and minimal
 
-    override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        return when (item.itemId) {
-            R.id.action_settings -> {
-                startActivity(Intent(this, SettingsActivity::class.java))
-                true
-            }
-            R.id.action_reload -> {
-                webView.reload()
-                true
-            }
-            else -> super.onOptionsItemSelected(item)
-        }
-    }
 
     override fun onResume() {
         super.onResume()
         val prefs = getSharedPreferences("app_prefs", MODE_PRIVATE)
-        val url = prefs.getString("home_url", "") ?: ""
+        // Use default if none saved to avoid prompting the user on boot
+        val url = prefs.getString("home_url", homeUrl) ?: homeUrl
         if (url != homeUrl) {
             homeUrl = url
-            if (homeUrl.isNotBlank()) loadUrl(homeUrl) else promptForUrl()
+            loadUrl(homeUrl)
         }
     }
 
+    // promptForUrl() retained for manual use in Settings but not used on boot
     private fun promptForUrl() {
-        val edit = EditText(this)
+        // Keep the dialog for backward compatibility if ever needed
+        val edit = android.widget.EditText(this)
         edit.hint = "https://example.com"
-        AlertDialog.Builder(this)
+        androidx.appcompat.app.AlertDialog.Builder(this)
             .setTitle(R.string.enter_website)
             .setView(edit)
             .setPositiveButton(R.string.save) { _, _ ->
                 val u = edit.text.toString().trim()
-                if (u.isNotBlank()) {
-                    getSharedPreferences("app_prefs", MODE_PRIVATE).edit().putString("home_url", u).apply()
-                    homeUrl = u
-                    loadUrl(homeUrl)
-                } else {
-                    promptForUrl()
-                }
+                getSharedPreferences("app_prefs", MODE_PRIVATE).edit().putString("home_url", u).apply()
+                homeUrl = if (u.isNotBlank()) u else "http://192.168.100.250:51500"
+                loadUrl(homeUrl)
             }
             .setCancelable(false)
             .show()
