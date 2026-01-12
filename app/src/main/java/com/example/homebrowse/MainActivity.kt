@@ -3,10 +3,12 @@ package com.example.homebrowse
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.util.Log
 import android.view.MotionEvent
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 
 class MainActivity : AppCompatActivity() {
@@ -103,18 +105,29 @@ class MainActivity : AppCompatActivity() {
                 if (scheme == "intent") {
                     try {
                         val intent = Intent.parseUri(uri.toString(), Intent.URI_INTENT_SCHEME)
-                        val pm = packageManager
-                        if (intent.resolveActivity(pm) != null) {
-                            startActivity(intent)
-                        } else {
-                            // Try browser_fallback_url
+                        
+                        // Add FLAG_ACTIVITY_NEW_TASK for launching from WebView context
+                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        
+                        // Try to start the activity
+                        startActivity(intent)
+                        return true
+                    } catch (e: android.content.ActivityNotFoundException) {
+                        // App not installed, try fallback URL if present
+                        try {
+                            val intent = Intent.parseUri(uri.toString(), Intent.URI_INTENT_SCHEME)
                             val fallback = intent.getStringExtra("browser_fallback_url")
-                            if (!fallback.isNullOrEmpty()) webView.loadUrl(fallback)
+                            if (!fallback.isNullOrEmpty()) {
+                                webView.loadUrl(fallback)
+                            }
+                        } catch (ex: Exception) {
+                            // ignore
                         }
+                        return true
                     } catch (e: Exception) {
-                        // ignore
+                        // Malformed intent URL, ignore
+                        return true
                     }
-                    return true
                 }
 
                 // Common schemes: mailto, tel, sms
