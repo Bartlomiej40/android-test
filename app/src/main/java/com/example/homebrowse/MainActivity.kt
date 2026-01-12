@@ -15,6 +15,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var webView: WebView
     private lateinit var swipeRefresh: androidx.swiperefreshlayout.widget.SwipeRefreshLayout
     private var homeUrl: String = "http://192.168.100.250:51500"
+    private var restoredFromBundle: Boolean = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -36,7 +37,13 @@ class MainActivity : AppCompatActivity() {
         // Use a Chrome-like user agent to reduce site UA-sniffing inconsistencies
         webView.settings.userAgentString = android.webkit.WebSettings.getDefaultUserAgent(this)
 
-        loadUrl(homeUrl)
+        // Restore WebView state after configuration changes (rotation) if available
+        if (savedInstanceState != null) {
+            webView.restoreState(savedInstanceState)
+            restoredFromBundle = true
+        } else {
+            loadUrl(homeUrl)
+        }
 
         // Hidden access to settings: detect swipe from left edge to open Settings
         setupEdgeSwipeForSettings()
@@ -177,8 +184,13 @@ class MainActivity : AppCompatActivity() {
         val url = prefs.getString("home_url", homeUrl) ?: homeUrl
         if (url != homeUrl) {
             homeUrl = url
-            loadUrl(homeUrl)
+            // If we restored WebView from bundle (e.g., rotation), don't override its current page
+            if (!restoredFromBundle) {
+                loadUrl(homeUrl)
+            }
         }
+        // Reset the restored flag so future onResume calls behave normally
+        restoredFromBundle = false
     }
 
     // promptForUrl() retained for manual use in Settings but not used on boot
@@ -197,5 +209,11 @@ class MainActivity : AppCompatActivity() {
             }
             .setCancelable(false)
             .show()
+    }
+
+    override fun onSaveInstanceState(outState: android.os.Bundle) {
+        super.onSaveInstanceState(outState)
+        // Save WebView state so rotation doesn't force load of default home URL
+        webView.saveState(outState)
     }
 }
