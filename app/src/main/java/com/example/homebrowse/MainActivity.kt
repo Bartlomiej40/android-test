@@ -1,6 +1,7 @@
 package com.example.homebrowse
 
 import android.content.Intent
+import android.content.res.Configuration
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
@@ -15,7 +16,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var webView: WebView
     private lateinit var swipeRefresh: androidx.swiperefreshlayout.widget.SwipeRefreshLayout
     private var homeUrl: String = "http://192.168.100.250:51500"
-    private var restoredFromBundle: Boolean = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -37,13 +37,8 @@ class MainActivity : AppCompatActivity() {
         // Use a Chrome-like user agent to reduce site UA-sniffing inconsistencies
         webView.settings.userAgentString = android.webkit.WebSettings.getDefaultUserAgent(this)
 
-        // Restore WebView state after configuration changes (rotation) if available
-        if (savedInstanceState != null) {
-            webView.restoreState(savedInstanceState)
-            restoredFromBundle = true
-        } else {
-            loadUrl(homeUrl)
-        }
+        // Load the configured homepage (no state restoration; activity handles config changes)
+        loadUrl(homeUrl)
 
         // Hidden access to settings: detect swipe from left edge to open Settings
         setupEdgeSwipeForSettings()
@@ -174,23 +169,23 @@ class MainActivity : AppCompatActivity() {
         if (webView.canGoBack()) webView.goBack() else super.onBackPressed()
     }
 
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        // We handle orientation/configuration changes to keep the WebView instance alive
+        // and avoid reloading the page or re-executing JavaScript.
+    }
+
     // No options menu — UI is full-screen and minimal
 
 
     override fun onResume() {
         super.onResume()
         val prefs = getSharedPreferences("app_prefs", MODE_PRIVATE)
-        // Use default if none saved to avoid prompting the user on boot
         val url = prefs.getString("home_url", homeUrl) ?: homeUrl
         if (url != homeUrl) {
             homeUrl = url
-            // If we restored WebView from bundle (e.g., rotation), don't override its current page
-            if (!restoredFromBundle) {
-                loadUrl(homeUrl)
-            }
+            loadUrl(homeUrl)
         }
-        // Reset the restored flag so future onResume calls behave normally
-        restoredFromBundle = false
     }
 
     // promptForUrl() retained for manual use in Settings but not used on boot
@@ -211,9 +206,5 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
-    override fun onSaveInstanceState(outState: android.os.Bundle) {
-        super.onSaveInstanceState(outState)
-        // Save WebView state so rotation doesn't force load of default home URL
-        webView.saveState(outState)
-    }
+
 }
